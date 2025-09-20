@@ -231,7 +231,7 @@ func watchKeys() {
 			mu.Lock()
 			currentMode = "WORK"
 			mu.Unlock()
-			log.Println(" 🎬 [Switched to WORK mode]")
+			log.Println(" 💼 [Switched to WORK mode]")
 		} else if input == "f" {
 			mu.Lock()
 			currentMode = "fun"
