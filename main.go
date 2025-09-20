@@ -15,13 +15,18 @@ import (
 // 代理名单
 var proxyRules = []string{
 	"google.com",
+	"*.google.com",
 	"chatgpt.com",
 	"github.com",
+
+	"sspanel.net",
+
 	"iyf.tv",
 	"www.iyf.tv",
 	"static.iyf.tv",
 	"rankv21.iyf.tv",
 	"m10.iyf.tv",
+	// "s*-e1.etcbbc.xyz",
 }
 
 // 拦截名单
@@ -117,10 +122,10 @@ func handleTunneling(w http.ResponseWriter, r *http.Request, upstreamAddr string
 }
 
 // 数据转发
-func transfer(destination net.Conn, source net.Conn) {
-	defer destination.Close()
-	defer source.Close()
-	_, _ = io.Copy(destination, source)
+func transfer(to net.Conn, from net.Conn) {
+	defer to.Close()
+	defer from.Close()
+	_, _ = io.Copy(to, from)
 }
 
 // HTTP 请求处理
