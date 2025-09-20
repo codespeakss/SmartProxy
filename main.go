@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -8,34 +9,74 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"path"
 	"strings"
+	"sync"
 )
 
 // 代理名单
-var proxyRules = []string{
-	"google.com",
-	"*.google.com",
-	"chatgpt.com",
-	"github.com",
+var proxyRules = map[string][]string{
+	"down": {},
+	"WORK": {
+		"google.com",
+		"*.google.com",
+		"chatgpt.com",
+		"github.com",
+	},
+	"work": {
+		"google.com",
+		"*.google.com",
+		"chatgpt.com",
+	},
+	"fun": {
+		"google.com",
+		"*.google.com",
+		"chatgpt.com",
 
-	"sspanel.net",
+		"youtube.com",
+		"*.youtube.com",
+		".ytimg.com",
+		"*.googlevideo.com",
 
-	"iyf.tv",
-	"www.iyf.tv",
-	"static.iyf.tv",
-	"rankv21.iyf.tv",
-	"m10.iyf.tv",
-	// "s*-e1.etcbbc.xyz",
+		"iyf.tv",
+		"www.iyf.tv",
+		"static.iyf.tv",
+		"rankv21.iyf.tv",
+		"m10.iyf.tv",
+	},
+	"FUN": {
+		"google.com",
+		"*.google.com",
+		"chatgpt.com",
+
+		"youtube.com",
+		"*.youtube.com",
+		".ytimg.com",
+		"*.googlevideo.com",
+
+		"iyf.tv",
+		"www.iyf.tv",
+		"static.iyf.tv",
+		"rankv21.iyf.tv",
+		"m10.iyf.tv",
+		"s*-e1.etc*.xyz",
+	},
 }
 
 // 拦截名单
 var blocklist = []string{
-	"youtube.com",
-	"*.youtube.com",
 	"brave.com",
 	"*.brave.com",
+	".bravesoftware.com",
+
+	"mtalk.google.com",
+	"*.googleapis.com",
 }
+
+// 当前模式，默认工作模式
+var currentMode = "work"
+var mu sync.RWMutex
 
 func isBlocklisted(host string) bool {
 	h := host
@@ -61,7 +102,12 @@ func shouldProxy(host string) bool {
 	if strings.Contains(host, ":") {
 		h = strings.Split(host, ":")[0]
 	}
-	for _, rule := range proxyRules {
+
+	mu.RLock()
+	rules := proxyRules[currentMode]
+	mu.RUnlock()
+
+	for _, rule := range rules {
 		match, _ := path.Match(rule, h)
 		if match {
 			log.Printf("[PROXY]  host=[%80s] FORWARD  ↩️  rule=[%30s]", host, rule)
@@ -165,9 +211,46 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
+// 快捷键监听
+func watchKeys() {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "d" {
+			mu.Lock()
+			currentMode = "down"
+			mu.Unlock()
+			log.Println(" 🌱 [Switched to down mode]")
+		} else if input == "w" {
+			mu.Lock()
+			currentMode = "work"
+			mu.Unlock()
+			log.Println(" 💼 [Switched to work mode]")
+		} else if input == "W" {
+			mu.Lock()
+			currentMode = "WOKR"
+			mu.Unlock()
+			log.Println(" 🎬 [Switched to WORK mode]")
+		} else if input == "f" {
+			mu.Lock()
+			currentMode = "fun"
+			mu.Unlock()
+			log.Println(" 🎬 [Switched to fun mode]")
+		} else if input == "F" {
+			mu.Lock()
+			currentMode = "FUN"
+			mu.Unlock()
+			log.Println(" 🎬 [Switched to FUN mode]")
+		}
+	}
+}
+
 func main() {
 	frontAddr := ":7895"
 	upstreamAddr := "127.0.0.1:7890"
+
+	go watchKeys() // 启动快捷键监听
 
 	server := &http.Server{
 		Addr: frontAddr,
@@ -181,5 +264,6 @@ func main() {
 	}
 
 	log.Println("Starting proxy server on ", frontAddr)
+	log.Println("Default mode: [work] (press 「d W w f F」 to switch mode)")
 	log.Fatal(server.ListenAndServe())
 }
