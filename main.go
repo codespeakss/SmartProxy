@@ -36,7 +36,7 @@ var proxyRules = map[string][]string{
 
 		"youtube.com",
 		"*.youtube.com",
-		".ytimg.com",
+		"*.ytimg.com",
 		"*.googlevideo.com",
 
 		"iyf.tv",
