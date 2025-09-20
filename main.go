@@ -12,10 +12,11 @@ import (
 	"strings"
 )
 
-// 代理规则
+// 代理名单
 var proxyRules = []string{
 	"google.com",
 	"chatgpt.com",
+	"github.com",
 	"iyf.tv",
 	"www.iyf.tv",
 	"static.iyf.tv",
@@ -23,7 +24,7 @@ var proxyRules = []string{
 	"m10.iyf.tv",
 }
 
-// 拦截规则
+// 拦截名单
 var blocklist = []string{
 	"youtube.com",
 	"*.youtube.com",
@@ -31,7 +32,6 @@ var blocklist = []string{
 	"*.brave.com",
 }
 
-// 判断是否在拦截名单中
 func isBlocklisted(host string) bool {
 	h := host
 	if strings.Contains(host, ":") {
@@ -47,7 +47,6 @@ func isBlocklisted(host string) bool {
 	return false
 }
 
-// 判断是否需要代理
 func shouldProxy(host string) bool {
 	if isBlocklisted(host) {
 		return false
