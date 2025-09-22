@@ -15,29 +15,54 @@ import (
 	"sync"
 )
 
-// 代理名单
+// 代理白名单 （各个分场景均生效）
+var whitelist = []string{
+	"google.com",
+	"*.google.com",
+	"*.googleusercontent.com",
+
+	"*.wikipedia.org",
+
+	"chatgpt.com",
+}
+
+// 拦截名单
+var blocklist = []string{
+	"brave.com",
+	"*.brave.com",
+	".bravesoftware.com",
+	"*.mozilla.org",
+
+	"mtalk.google.com",
+	"*.googleapis.com",
+
+	"browser-intake-datadoghq.com",
+	"*.browser-intake-datadoghq.com",
+
+	"ppt.iyf.tv",
+}
+
+// 不同模式下的代理名单
 var proxyRules = map[string][]string{
 	"down": {},
 	"WORK": {
-		"google.com",
-		"*.google.com",
-		"chatgpt.com",
 		"github.com",
+		"go.dev",
 	},
 	"work": {
-		"google.com",
-		"*.google.com",
-		"chatgpt.com",
+		"go.dev",
 	},
 	"fun": {
-		"google.com",
-		"*.google.com",
-		"chatgpt.com",
-
 		"youtube.com",
 		"*.youtube.com",
 		"*.ytimg.com",
 		"*.googlevideo.com",
+
+		"*.tiktok.com",
+		"*.tiktokv.com",
+		"*.tiktokcdn.com",
+
+		"*.netflix.com",
 
 		"iyf.tv",
 		"www.iyf.tv",
@@ -46,32 +71,25 @@ var proxyRules = map[string][]string{
 		"m10.iyf.tv",
 	},
 	"FUN": {
-		"google.com",
-		"*.google.com",
-		"chatgpt.com",
-
 		"youtube.com",
 		"*.youtube.com",
-		".ytimg.com",
+		"*.ytimg.com",
 		"*.googlevideo.com",
+
+		"*.tiktok.com",
+		"*.tiktokv.com",
+		"*.tiktokcdn.com",
+
+		"*.netflix.com",
 
 		"iyf.tv",
 		"www.iyf.tv",
 		"static.iyf.tv",
 		"rankv21.iyf.tv",
 		"m10.iyf.tv",
-		"s*-e1.etc*.xyz",
+
+		"s*-e*.*.*",
 	},
-}
-
-// 拦截名单
-var blocklist = []string{
-	"brave.com",
-	"*.brave.com",
-	".bravesoftware.com",
-
-	"mtalk.google.com",
-	"*.googleapis.com",
 }
 
 // 当前模式，默认工作模式
@@ -101,6 +119,14 @@ func shouldProxy(host string) bool {
 	h := host
 	if strings.Contains(host, ":") {
 		h = strings.Split(host, ":")[0]
+	}
+
+	for _, rule := range whitelist {
+		match, _ := path.Match(rule, h)
+		if match {
+			log.Printf("[PROXY]  host=[%80s] FORWARD w↩️  rule=[%30s]", host, rule)
+			return true
+		}
 	}
 
 	mu.RLock()
