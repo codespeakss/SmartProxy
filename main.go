@@ -21,6 +21,7 @@ var whitelist = []string{
 	"*.google.com",
 	"*.googleusercontent.com",
 
+	"*.wikimedia.org",
 	"*.wikipedia.org",
 
 	"chatgpt.com",
@@ -28,6 +29,8 @@ var whitelist = []string{
 
 // 拦截名单
 var blocklist = []string{
+	"*analy*.wikimedia.org",
+
 	"brave.com",
 	"*.brave.com",
 	".bravesoftware.com",
@@ -47,6 +50,7 @@ var proxyRules = map[string][]string{
 	"down": {},
 	"WORK": {
 		"github.com",
+		"*.githubusercontent.com",
 		"go.dev",
 	},
 	"work": {
@@ -275,6 +279,7 @@ func watchKeys() {
 func main() {
 	frontAddr := ":7895"
 	upstreamAddr := "127.0.0.1:7890"
+	log.Println("upstreamAddr: ", upstreamAddr)
 
 	go watchKeys() // 启动快捷键监听
 
