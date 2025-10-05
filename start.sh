@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# --- 代理切换脚本（脚本A / 脚本B）---
+# 脚本A：将代理切换到 127.0.0.1:7895
+run_script_apply() {
+  echo -e "\033[31m[Proxy] run_script_apply: set proxies to 127.0.0.1:7895 for 'Wi-Fi'\033[0m"
+  networksetup -setsecurewebproxy      "Wi-Fi" 127.0.0.1 7895 || true
+  networksetup -setwebproxy            "Wi-Fi" 127.0.0.1 7895 || true
+  networksetup -setsocksfirewallproxy  "Wi-Fi" 127.0.0.1 7895 || true
+}
+
+# 脚本B：恢复代理到 127.0.0.1:7890
+run_script_restore() {
+  echo -e "\033[31m[Proxy] run_script_restore: restore proxies to 127.0.0.1:7890 for 'Wi-Fi'\033[0m"
+  networksetup -setsecurewebproxy      "Wi-Fi" 127.0.0.1 7890 || true
+  networksetup -setwebproxy            "Wi-Fi" 127.0.0.1 7890 || true
+  networksetup -setsocksfirewallproxy  "Wi-Fi" 127.0.0.1 7890 || true
+}
+
 # 1) 切换到本脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -27,10 +44,18 @@ forward_and_wait() {
   fi
 }
 trap forward_and_wait INT TERM
-trap cleanup EXIT
+on_exit() {
+  # 确保在任何退出路径下恢复代理
+  run_script_restore || true
+  cleanup
+}
+trap on_exit EXIT
 
 echo "Building SmartProxy in $(pwd)..."
 go build -o "$ARTIFACT"
+
+# 启动 SmartProxy 之前切换代理到 127.0.0.1:7895
+run_script_apply || true
 
 echo "Starting ./SmartProxy ..."
 ./SmartProxy &
