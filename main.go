@@ -19,12 +19,12 @@ import (
 
 // ANSI 颜色
 const (
-    colorReset  = "\033[0m"
-    colorHeader = "\033[35m" // magenta
-    colorBranch = "\033[90m" // bright black (gray)
-    colorFile   = "\033[36m" // cyan
-    colorDomain = "\033[32m" // green
-    colorCount  = "\033[90m" // gray
+	colorReset  = "\033[0m"
+	colorHeader = "\033[35m" // magenta
+	colorBranch = "\033[90m" // bright black (gray)
+	colorFile   = "\033[36m" // cyan
+	colorDomain = "\033[32m" // green
+	colorCount  = "\033[90m" // gray
 )
 
 // 代理白名单 （各个分场景均生效）
@@ -167,7 +167,7 @@ func init() {
 			totalDomains += len(ds)
 		}
 
-		log.Printf("%sinit: whitelist entries by file%s (%s%d files%s, %s%d domains%s):", colorHeader, colorReset, colorCount, len(filesSorted), colorReset, colorCount, totalDomains, colorReset)
+		log.Printf("%sload: whitelist entries by file%s (%s%d files%s, %s%d domains%s):", colorHeader, colorReset, colorCount, len(filesSorted), colorReset, colorCount, totalDomains, colorReset)
 		for i, fn := range filesSorted {
 			ds := fileToDomains[fn]
 			sort.Strings(ds)
@@ -189,7 +189,7 @@ func init() {
 			}
 		}
 	} else {
-		log.Println("init: whitelist is empty")
+		log.Println("lod: whitelist is empty")
 	}
 }
 func isBlocklisted(host string) bool {
