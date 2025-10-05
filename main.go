@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -412,9 +413,65 @@ func waitForUpstream(upstreamAddr string, retries int, delay time.Duration) erro
     return err
 }
 
+// 配置结构与加载逻辑
+type Config struct {
+    UpstreamAddr string `json:"upstreamAddr"`
+    FrontAddr    string `json:"frontAddr"`
+}
+
+// loadConfig 会从以下位置加载配置（优先级从高到低）：
+// 1) 环境变量 SMARTPROXY_CONFIG 指定的路径
+// 2) 可执行文件同目录下的 smartproxy.json
+// 若都不存在或解析失败，则使用内置默认值。
+func loadConfig() (frontAddr, upstreamAddr string) {
+    // 默认值
+    frontAddr = ":7895"
+    upstreamAddr = "127.0.0.1:7890"
+
+    var paths []string
+    if p := os.Getenv("SMARTPROXY_CONFIG"); p != "" {
+        paths = append(paths, p)
+    }
+    if exe, err := os.Executable(); err == nil {
+        exeDir := filepath.Dir(exe)
+        paths = append(paths, filepath.Join(exeDir, "smartproxy.json"))
+    }
+
+    var used string
+    for _, p := range paths {
+        // 只尝试存在的文件
+        if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+            b, err := os.ReadFile(p)
+            if err != nil {
+                log.Printf("config: failed reading %s: %v", p, err)
+                continue
+            }
+            var cfg Config
+            if err := json.Unmarshal(b, &cfg); err != nil {
+                log.Printf("config: failed parsing %s: %v", p, err)
+                continue
+            }
+            if cfg.FrontAddr != "" {
+                frontAddr = cfg.FrontAddr
+            }
+            if cfg.UpstreamAddr != "" {
+                upstreamAddr = cfg.UpstreamAddr
+            }
+            used = p
+            break
+        }
+    }
+
+    if used != "" {
+        log.Printf("config: loaded from %s (frontAddr=%s, upstreamAddr=%s)", used, frontAddr, upstreamAddr)
+    } else {
+        log.Printf("config: using defaults (frontAddr=%s, upstreamAddr=%s)", frontAddr, upstreamAddr)
+    }
+    return
+}
+
 func main() {
-	frontAddr := ":7895"
-	upstreamAddr := "127.0.0.1:7890"
+	frontAddr, upstreamAddr := loadConfig()
 	log.Println("upstreamAddr: ", upstreamAddr)
 
 	// 启动前检查上游代理是否可用（重试 3 次，每次间隔 1.5s）
