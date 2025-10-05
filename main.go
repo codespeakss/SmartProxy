@@ -11,42 +11,13 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 )
 
 // 代理白名单 （各个分场景均生效）
-var whitelist = []string{
-	"google.com",
-	"*.google.com",
-	"*.googleusercontent.com",
-
-	"*.wikimedia.org",
-	"*.wikipedia.org",
-
-	"chatgpt.com",
-
-	"youtube.com",
-	"*.youtube.com",
-	"*.ytimg.com",
-	"*.googlevideo.com",
-
-	"github.com",
-	"*.githubusercontent.com",
-
-	"go.dev",
-
-	"ppt.iyf.tv",
-	"iyf.tv",
-	"www.iyf.tv",
-	"static.iyf.tv",
-	"rankv21.iyf.tv",
-	"m10.iyf.tv",
-
-	"*.exp-tas.com",
-
-	"go.dev",
-}
+var whitelist = []string{}
 
 // 拦截名单
 var blocklist = []string{
@@ -79,6 +50,91 @@ var proxyRules = map[string][]string{
 var currentMode = "work"
 var mu sync.RWMutex
 
+// 初始化：从程序所在目录（递归）加载所有以 .whitelist 结尾的文件，
+// 将其中的域名作为 whitelist 的内容（若找到则覆盖默认值；若未找到则保留默认值）。
+func init() {
+	exe, err := os.Executable()
+	if err != nil {
+		log.Printf("init: cannot determine executable path: %v", err)
+		return
+	}
+	baseDir := filepath.Dir(exe)
+
+	var files []string
+	// 递归遍历，搜集所有 .whitelist 文件
+	_ = filepath.Walk(baseDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			// 忽略单个路径错误，继续遍历
+			return nil
+		}
+		if info == nil || info.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(info.Name(), ".whitelist") {
+			files = append(files, p)
+		}
+		return nil
+	})
+
+	if len(files) == 0 {
+		log.Printf("init: no .whitelist files found under %s, keeping built-in whitelist (%d entries)", baseDir, len(whitelist))
+		return
+	}
+
+	// 读取文件中的域名，去重与清洗
+	unique := make(map[string]struct{})
+	total := 0
+	for _, fp := range files {
+		f, err := os.Open(fp)
+		if err != nil {
+			log.Printf("init: failed to open %s: %v", fp, err)
+			continue
+		}
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			// 去除行内注释（# 或 //）
+			if idx := strings.Index(line, "#"); idx >= 0 {
+				line = strings.TrimSpace(line[:idx])
+			}
+			if idx := strings.Index(line, "//"); idx >= 0 {
+				line = strings.TrimSpace(line[:idx])
+			}
+			if line == "" {
+				continue
+			}
+			if _, ok := unique[line]; !ok {
+				unique[line] = struct{}{}
+				total++
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			log.Printf("init: read error in %s: %v", fp, err)
+		}
+		_ = f.Close()
+	}
+
+	if total > 0 {
+		// 覆盖内置白名单
+		whitelist = whitelist[:0]
+		for k := range unique {
+			whitelist = append(whitelist, k)
+		}
+		log.Printf("init: loaded %d whitelist entries from %d file(s) under %s", len(whitelist), len(files), baseDir)
+	} else {
+		log.Printf("init: .whitelist files found but no valid entries; keeping built-in whitelist (%d entries)", len(whitelist))
+	}
+
+	// 打印已加载的域名列表
+	if len(whitelist) > 0 {
+		log.Println("init: whitelist entries:")
+		for _, d := range whitelist {
+			log.Printf("  - %s", d)
+		}
+	} else {
+		log.Println("init: whitelist is empty")
+	}
+}
 func isBlocklisted(host string) bool {
 	h := host
 	if strings.Contains(host, ":") {
