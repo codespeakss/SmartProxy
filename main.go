@@ -12,8 +12,19 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
+)
+
+// ANSI 颜色
+const (
+    colorReset  = "\033[0m"
+    colorHeader = "\033[35m" // magenta
+    colorBranch = "\033[90m" // bright black (gray)
+    colorFile   = "\033[36m" // cyan
+    colorDomain = "\033[32m" // green
+    colorCount  = "\033[90m" // gray
 )
 
 // 代理白名单 （各个分场景均生效）
@@ -83,6 +94,8 @@ func init() {
 
 	// 读取文件中的域名，去重与清洗
 	unique := make(map[string]struct{})
+	// 记录每个域名来源的 whitelist 文件名（去重）
+	domainSources := make(map[string]map[string]struct{})
 	total := 0
 	for _, fp := range files {
 		f, err := os.Open(fp)
@@ -107,6 +120,12 @@ func init() {
 				unique[line] = struct{}{}
 				total++
 			}
+			// 记录来源文件名
+			bn := filepath.Base(fp)
+			if domainSources[line] == nil {
+				domainSources[line] = make(map[string]struct{})
+			}
+			domainSources[line][bn] = struct{}{}
 		}
 		if err := scanner.Err(); err != nil {
 			log.Printf("init: read error in %s: %v", fp, err)
@@ -125,11 +144,49 @@ func init() {
 		log.Printf("init: .whitelist files found but no valid entries; keeping built-in whitelist (%d entries)", len(whitelist))
 	}
 
-	// 打印已加载的域名列表
+	// 打印已加载的域名列表（树形结构：文件 -> 域名）
 	if len(whitelist) > 0 {
-		log.Println("init: whitelist entries:")
-		for _, d := range whitelist {
-			log.Printf("  - %s", d)
+		// 构建 文件名 -> 域名列表 的映射
+		fileToDomains := make(map[string][]string)
+		for domain, srcSet := range domainSources {
+			for src := range srcSet {
+				fileToDomains[src] = append(fileToDomains[src], domain)
+			}
+		}
+
+		// 为了稳定输出，对文件名和域名排序
+		var filesSorted []string
+		for fn := range fileToDomains {
+			filesSorted = append(filesSorted, fn)
+		}
+		sort.Strings(filesSorted)
+
+		// 统计总数
+		totalDomains := 0
+		for _, ds := range fileToDomains {
+			totalDomains += len(ds)
+		}
+
+		log.Printf("%sinit: whitelist entries by file%s (%s%d files%s, %s%d domains%s):", colorHeader, colorReset, colorCount, len(filesSorted), colorReset, colorCount, totalDomains, colorReset)
+		for i, fn := range filesSorted {
+			ds := fileToDomains[fn]
+			sort.Strings(ds)
+			isLastFile := i == len(filesSorted)-1
+			fileBranch := "├──"
+			childIndent := "│   "
+			if isLastFile {
+				fileBranch = "└──"
+				childIndent = "    "
+			}
+			log.Printf("  %s%s%s %s%s%s (%s%d%s)", colorBranch, fileBranch, colorReset, colorFile, fn, colorReset, colorCount, len(ds), colorReset)
+			for j, d := range ds {
+				isLastDomain := j == len(ds)-1
+				domainBranch := "├──"
+				if isLastDomain {
+					domainBranch = "└──"
+				}
+				log.Printf("  %s%s%s%s %s%s", childIndent, colorBranch, domainBranch, colorReset, colorDomain, d)
+			}
 		}
 	} else {
 		log.Println("init: whitelist is empty")
