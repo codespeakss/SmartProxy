@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ANSI 颜色
@@ -368,10 +369,58 @@ func watchKeys() {
 	}
 }
 
+// 在启动时检测上游 HTTP 代理是否可用
+func checkUpstream(upstreamAddr string) error {
+    // 1) TCP 直连探测
+    conn, err := net.DialTimeout("tcp", upstreamAddr, 2*time.Second)
+    if err != nil {
+        return fmt.Errorf("tcp dial failed: %w", err)
+    }
+    defer conn.Close()
+
+    // 2) 发送最小化的 HTTP 代理请求并验证响应首行
+    // 使用 HEAD 到 http://example.com，符合 HTTP 代理语义
+    _ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+    _, err = conn.Write([]byte("HEAD http://example.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n"))
+    if err != nil {
+        return fmt.Errorf("write probe failed: %w", err)
+    }
+
+    buf := make([]byte, 1024)
+    n, err := conn.Read(buf)
+    if err != nil {
+        return fmt.Errorf("read probe failed: %w", err)
+    }
+    line := string(buf[:n])
+    if !strings.HasPrefix(line, "HTTP/") {
+        return fmt.Errorf("unexpected upstream response: %q", line)
+    }
+    return nil
+}
+
+func waitForUpstream(upstreamAddr string, retries int, delay time.Duration) error {
+    var err error
+    for i := 0; i < retries; i++ {
+        if i > 0 {
+            time.Sleep(delay)
+        }
+        if err = checkUpstream(upstreamAddr); err == nil {
+            return nil
+        }
+        log.Printf("upstream check failed (attempt %d/%d): %v", i+1, retries, err)
+    }
+    return err
+}
+
 func main() {
 	frontAddr := ":7895"
 	upstreamAddr := "127.0.0.1:7890"
 	log.Println("upstreamAddr: ", upstreamAddr)
+
+	// 启动前检查上游代理是否可用（重试 3 次，每次间隔 1.5s）
+	if err := waitForUpstream(upstreamAddr, 3, 1500*time.Millisecond); err != nil {
+		log.Fatalf("Upstream %s not available: %v", upstreamAddr, err)
+	}
 
 	go watchKeys() // 启动快捷键监听
 
