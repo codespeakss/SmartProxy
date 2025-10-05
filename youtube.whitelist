@@ -1,0 +1,6 @@
+# YouTube 及其静态/媒体域名
+
+youtube.com
+*.youtube.com
+*.ytimg.com
+*.googlevideo.com

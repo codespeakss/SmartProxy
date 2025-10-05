@@ -1,0 +1,16 @@
+# 维基百科与维基媒体
+
+*.wikipedia.org
+*.wikimedia.org
+
+
+# ChatGPT
+
+chatgpt.com
+
+# Google 相关域名（非 YouTube）
+# 注释与空行会被忽略
+
+google.com
+*.google.com
+*.googleusercontent.com
