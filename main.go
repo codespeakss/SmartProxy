@@ -25,6 +25,27 @@ var whitelist = []string{
 	"*.wikipedia.org",
 
 	"chatgpt.com",
+
+	"youtube.com",
+	"*.youtube.com",
+	"*.ytimg.com",
+	"*.googlevideo.com",
+
+	"github.com",
+	"*.githubusercontent.com",
+
+	"go.dev",
+
+	"ppt.iyf.tv",
+	"iyf.tv",
+	"www.iyf.tv",
+	"static.iyf.tv",
+	"rankv21.iyf.tv",
+	"m10.iyf.tv",
+
+	"*.exp-tas.com",
+
+	"go.dev",
 }
 
 // 拦截名单
@@ -41,57 +62,15 @@ var blocklist = []string{
 
 	"browser-intake-datadoghq.com",
 	"*.browser-intake-datadoghq.com",
-
-	"ppt.iyf.tv",
 }
 
 // 不同模式下的代理名单
 var proxyRules = map[string][]string{
 	"down": {},
-	"WORK": {
-		"github.com",
-		"*.githubusercontent.com",
-		"go.dev",
-	},
-	"work": {
-		"go.dev",
-	},
-	"fun": {
-		"youtube.com",
-		"*.youtube.com",
-		"*.ytimg.com",
-		"*.googlevideo.com",
-
-		"*.tiktok.com",
-		"*.tiktokv.com",
-		"*.tiktokcdn.com",
-
-		"*.netflix.com",
-
-		"iyf.tv",
-		"www.iyf.tv",
-		"static.iyf.tv",
-		"rankv21.iyf.tv",
-		"m10.iyf.tv",
-	},
+	"WORK": {},
+	"work": {},
+	"fun":  {},
 	"FUN": {
-		"youtube.com",
-		"*.youtube.com",
-		"*.ytimg.com",
-		"*.googlevideo.com",
-
-		"*.tiktok.com",
-		"*.tiktokv.com",
-		"*.tiktokcdn.com",
-
-		"*.netflix.com",
-
-		"iyf.tv",
-		"www.iyf.tv",
-		"static.iyf.tv",
-		"rankv21.iyf.tv",
-		"m10.iyf.tv",
-
 		"s*-e*.*.*",
 	},
 }
