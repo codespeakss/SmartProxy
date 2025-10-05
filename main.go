@@ -27,7 +27,24 @@ const (
 	colorFile   = "\033[36m" // cyan
 	colorDomain = "\033[32m" // green
 	colorCount  = "\033[90m" // gray
+	// 行级整色，用于不同匹配结果（避免与上面颜色重复）
+	colorProxyLine  = "\033[94m" // bright blue
+	colorDirectLine = "\033[30m" // black
+	colorBlockLine  = "\033[91m" // bright red
 )
+
+// 整行变色日志封装
+func logProxyf(format string, args ...any) {
+	log.Printf(colorProxyLine+format+colorReset, args...)
+}
+
+func logDirectf(format string, args ...any) {
+	log.Printf(colorDirectLine+format+colorReset, args...)
+}
+
+func logBlockf(format string, args ...any) {
+	log.Printf(colorBlockLine+format+colorReset, args...)
+}
 
 // 代理白名单 （各个分场景均生效）
 var whitelist = []string{}
@@ -202,7 +219,7 @@ func isBlocklisted(host string) bool {
 	for _, rule := range blocklist {
 		match, _ := path.Match(rule, h)
 		if match {
-			log.Printf("[BLOCK]  host=[%80s] REJECTED ⛔ rule=[%30s]", host, rule)
+			logBlockf("[BLOCK]  host=[%80s] REJECTED ⛔ rule=[%30s]", host, rule)
 			return true
 		}
 	}
@@ -222,7 +239,7 @@ func shouldProxy(host string) bool {
 	for _, rule := range whitelist {
 		match, _ := path.Match(rule, h)
 		if match {
-			log.Printf("[PROXY]  host=[%80s] FORWARD w↩️  rule=[%30s]", host, rule)
+			logProxyf("[PROXY]  host=[%80s] FORWARD w↩️  rule=[%30s]", host, rule)
 			return true
 		}
 	}
@@ -234,11 +251,11 @@ func shouldProxy(host string) bool {
 	for _, rule := range rules {
 		match, _ := path.Match(rule, h)
 		if match {
-			log.Printf("[PROXY]  host=[%80s] FORWARD  ↩️  rule=[%30s]", host, rule)
+			logProxyf("[PROXY]  host=[%80s] FORWARD  ↩️  rule=[%30s]", host, rule)
 			return true
 		}
 	}
-	log.Printf("[DIRECT] host=[%80s] DIRECT   🔗", host)
+	logDirectf("[DIRECT] host=[%80s] DIRECT   🔗", host)
 	return false
 }
 
@@ -372,51 +389,51 @@ func watchKeys() {
 
 // 在启动时检测上游 HTTP 代理是否可用
 func checkUpstream(upstreamAddr string) error {
-    // 1) TCP 直连探测
-    conn, err := net.DialTimeout("tcp", upstreamAddr, 2*time.Second)
-    if err != nil {
-        return fmt.Errorf("tcp dial failed: %w", err)
-    }
-    defer conn.Close()
+	// 1) TCP 直连探测
+	conn, err := net.DialTimeout("tcp", upstreamAddr, 2*time.Second)
+	if err != nil {
+		return fmt.Errorf("tcp dial failed: %w", err)
+	}
+	defer conn.Close()
 
-    // 2) 发送最小化的 HTTP 代理请求并验证响应首行
-    // 使用 HEAD 到 http://example.com，符合 HTTP 代理语义
-    _ = conn.SetDeadline(time.Now().Add(2 * time.Second))
-    _, err = conn.Write([]byte("HEAD http://example.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n"))
-    if err != nil {
-        return fmt.Errorf("write probe failed: %w", err)
-    }
+	// 2) 发送最小化的 HTTP 代理请求并验证响应首行
+	// 使用 HEAD 到 http://example.com，符合 HTTP 代理语义
+	_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+	_, err = conn.Write([]byte("HEAD http://example.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n"))
+	if err != nil {
+		return fmt.Errorf("write probe failed: %w", err)
+	}
 
-    buf := make([]byte, 1024)
-    n, err := conn.Read(buf)
-    if err != nil {
-        return fmt.Errorf("read probe failed: %w", err)
-    }
-    line := string(buf[:n])
-    if !strings.HasPrefix(line, "HTTP/") {
-        return fmt.Errorf("unexpected upstream response: %q", line)
-    }
-    return nil
+	buf := make([]byte, 1024)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return fmt.Errorf("read probe failed: %w", err)
+	}
+	line := string(buf[:n])
+	if !strings.HasPrefix(line, "HTTP/") {
+		return fmt.Errorf("unexpected upstream response: %q", line)
+	}
+	return nil
 }
 
 func waitForUpstream(upstreamAddr string, retries int, delay time.Duration) error {
-    var err error
-    for i := 0; i < retries; i++ {
-        if i > 0 {
-            time.Sleep(delay)
-        }
-        if err = checkUpstream(upstreamAddr); err == nil {
-            return nil
-        }
-        log.Printf("upstream check failed (attempt %d/%d): %v", i+1, retries, err)
-    }
-    return err
+	var err error
+	for i := 0; i < retries; i++ {
+		if i > 0 {
+			time.Sleep(delay)
+		}
+		if err = checkUpstream(upstreamAddr); err == nil {
+			return nil
+		}
+		log.Printf("upstream check failed (attempt %d/%d): %v", i+1, retries, err)
+	}
+	return err
 }
 
 // 配置结构与加载逻辑
 type Config struct {
-    UpstreamAddr string `json:"upstreamAddr"`
-    FrontAddr    string `json:"frontAddr"`
+	UpstreamAddr string `json:"upstreamAddr"`
+	FrontAddr    string `json:"frontAddr"`
 }
 
 // loadConfig 会从以下位置加载配置（优先级从高到低）：
@@ -424,50 +441,50 @@ type Config struct {
 // 2) 可执行文件同目录下的 smartproxy.json
 // 若都不存在或解析失败，则使用内置默认值。
 func loadConfig() (frontAddr, upstreamAddr string) {
-    // 默认值
-    frontAddr = ":7895"
-    upstreamAddr = "127.0.0.1:7890"
+	// 默认值
+	frontAddr = ":7895"
+	upstreamAddr = "127.0.0.1:7890"
 
-    var paths []string
-    if p := os.Getenv("SMARTPROXY_CONFIG"); p != "" {
-        paths = append(paths, p)
-    }
-    if exe, err := os.Executable(); err == nil {
-        exeDir := filepath.Dir(exe)
-        paths = append(paths, filepath.Join(exeDir, "smartproxy.json"))
-    }
+	var paths []string
+	if p := os.Getenv("SMARTPROXY_CONFIG"); p != "" {
+		paths = append(paths, p)
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		paths = append(paths, filepath.Join(exeDir, "smartproxy.json"))
+	}
 
-    var used string
-    for _, p := range paths {
-        // 只尝试存在的文件
-        if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
-            b, err := os.ReadFile(p)
-            if err != nil {
-                log.Printf("config: failed reading %s: %v", p, err)
-                continue
-            }
-            var cfg Config
-            if err := json.Unmarshal(b, &cfg); err != nil {
-                log.Printf("config: failed parsing %s: %v", p, err)
-                continue
-            }
-            if cfg.FrontAddr != "" {
-                frontAddr = cfg.FrontAddr
-            }
-            if cfg.UpstreamAddr != "" {
-                upstreamAddr = cfg.UpstreamAddr
-            }
-            used = p
-            break
-        }
-    }
+	var used string
+	for _, p := range paths {
+		// 只尝试存在的文件
+		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+			b, err := os.ReadFile(p)
+			if err != nil {
+				log.Printf("config: failed reading %s: %v", p, err)
+				continue
+			}
+			var cfg Config
+			if err := json.Unmarshal(b, &cfg); err != nil {
+				log.Printf("config: failed parsing %s: %v", p, err)
+				continue
+			}
+			if cfg.FrontAddr != "" {
+				frontAddr = cfg.FrontAddr
+			}
+			if cfg.UpstreamAddr != "" {
+				upstreamAddr = cfg.UpstreamAddr
+			}
+			used = p
+			break
+		}
+	}
 
-    if used != "" {
-        log.Printf("config: loaded from %s (frontAddr=%s, upstreamAddr=%s)", used, frontAddr, upstreamAddr)
-    } else {
-        log.Printf("config: using defaults (frontAddr=%s, upstreamAddr=%s)", frontAddr, upstreamAddr)
-    }
-    return
+	if used != "" {
+		log.Printf("config: loaded from %s (frontAddr=%s, upstreamAddr=%s)", used, frontAddr, upstreamAddr)
+	} else {
+		log.Printf("config: using defaults (frontAddr=%s, upstreamAddr=%s)", frontAddr, upstreamAddr)
+	}
+	return
 }
 
 func main() {
